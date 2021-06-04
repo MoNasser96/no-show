@@ -1,0 +1,253 @@
+# Project: Investigate a Dataset (No-show appointment)
+
+## Table of Contents
+<ul>
+<li><a href="#intro">Introduction</a></li>
+<li><a href="#wrangling">Data Wrangling</a></li>
+<li><a href="#eda">Exploratory Data Analysis</a></li>
+<li><a href="#conclusions">Conclusions</a></li>
+</ul>
+
+<a id='intro'></a>
+## Introduction
+
+>No-show appointment dataset has been chosen for analyzing.
+>No-show appointment dataset about patient people  appointments, health issuies, neighborhoods etc..
+The plan is to check and filter this dataset to come up with relations between different types of information pieces that may help in detecting a specific pattern or determine any further steps to be taken (if possible) to help the sick people.
+
+Looking at provided attributes, I am planning to divide them into different characteristics for my analysis:
+* Scheduled Day, Appointment Day)
+* Gender, Age)
+* Hypertention, Diabetes, Alcoholism, Handicap)
+
+
+
+import pandas as pd
+import numpy as np 
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+
+<a id='wrangling'></a>
+## Data Wrangling
+
+### General Properties
+
+#loading the data
+df = pd.read_csv('noshow.csv')
+#Getting the first 1 row to get a gist of the data
+df.head(1)
+
+#Getting the number of rows and numbers of columns in the dataset
+df.shape
+
+#check for null values 
+df.isnull().sum()
+
+#Getting a basic summary of the attributes in the dataset
+df.describe()
+
+#Getting the number of duplicate values if any in the dataset
+sum(df.duplicated())
+
+#invetigate age for checking strange values such -1
+df['Age'].value_counts(dropna='False')
+
+### From Data Above
+* the shape of the data is (110527 Rows and 14 Colums)
+* the number of duplicated data was zero 0 
+* we have some colums we will not use as it's not important as 'AppointmentID','Scholarship','AppointmentID'
+
+
+### issues :
+>- Some has age 0 and -1 .
+>- Some has non accorate Name
+
+## Data Cleaning
+- change ScheduledDay type to a datetime object .
+- Remove rows with age 0 and -1
+- rename columns 'Hipertension' 'Handcap':'NoShow
+- combine (Hypertension , Diabetes , Alcoholism , Handicap) under diseases column
+
+
+#Dropping age -1
+df.drop(df[df['Age'] == -1].index, inplace = True)
+df.drop(df[df['Age'] == 0].index, inplace = True)
+#check if dropped
+df['Age'].value_counts(dropna='False')
+
+#remove unused data 
+df.drop(['AppointmentID','Scholarship','AppointmentID'], inplace=True, axis=1)
+#check data 
+df.head(1)
+
+#Rename the columns which have incorrect spelling mistakes - this will helps us create columns in easy to understand way
+df.rename(columns = {'Hipertension' : 'Hypertension', 'Handcap':'Handicap', 'No-show' : 'NoShow'}, inplace = True)
+df.head(3)
+
+#Changing the data type of scheduled_day to datetime
+df['ScheduledDay']= pd.to_datetime(df['ScheduledDay'],format='%Y-%m-%d')
+df.dtypes
+
+df.head(3)
+
+# Change Type string
+df.Hypertension = df.Hypertension.astype('str')
+df.Diabetes = df.Diabetes.astype('str')
+df.Alcoholism = df.Alcoholism.astype('str')
+df.Handicap = df.Handicap.astype('str')
+
+# Replace every '1' with the disease name
+df.Hypertension.replace('1','Hypertension' , inplace= True)
+df.Diabetes.replace('1','Diabetes', inplace= True)
+df.Alcoholism.replace('1','Alcoholism', inplace= True) 
+df.Handicap.replace('1','Handicap', inplace= True)
+# Replace every '0' with empty space
+df.Hypertension.replace('0','' , inplace= True)
+df.Diabetes.replace('0','', inplace= True)
+df.Alcoholism.replace('0','', inplace= True) 
+df.Handicap.replace('0','', inplace= True)
+
+# combine (Hipertension , Diabetes , Alcoholism , Handcap) under diseases column
+df['Diseases'] = df['Hypertension'].str.strip() + df['Diabetes'].str.strip() + df['Alcoholism'].str.strip() + df['Handicap'].str.strip()
+
+# Replacing empty spaces in Diseases with 'No Diseases' 
+df.Diseases.loc[df.Diseases == ''] = 'No Diseases'
+
+
+df.head(3)
+
+<a id='eda'></a>
+## Exploratory Data Analysis
+
+
+## Histograming all numerical attributes (Hypertension, Diabetes ,Alcoholism ,Handcap )
+
+
+plt.figure(1)
+plt.figure(figsize = (15,10))
+iter_cols = ['Diabetes','Handicap','Alcoholism','Hypertension']
+#              , 'Alcoholism', 'Handicap']
+colour = ['c', 'g', 'b', 'r']
+i = 0
+for col in iter_cols:    
+    plt.subplot(int(str(22)+str((iter_cols.index(col)+1))))
+    df[col].value_counts(normalize=True).plot.bar(figsize=(20,10), fontsize = 15, color = colour[i])
+    plt.title(col, fontweight="bold", fontsize = 22)
+    plt.ylabel('Count %', fontsize = 20)
+    i = i +1   
+
+It can be inferred from the above bar plots that:
+
+* ~20% of patient instances have Hypertension.
+* ~88% of patient instacnes do not have diabetes 
+
+
+
+### Research Question 1 ( What is the percentage of male and female)
+
+# Gender chart 
+df['Gender'].value_counts().plot(kind = 'pie',autopct="%0.f%%");
+
+### From data abouve 
+* 66% are female 
+* 34% are male
+
+
+
+### Research Question 2  (The Number of appointments Show VS Not Show)
+
+#bar chart for showed up vs not showed up
+df['NoShow'].value_counts().plot(kind='bar',color=['black','blue'],title='Show - No show',alpha=.8);
+plt.xlabel("Yes - No",fontsize=19);
+
+plt.ylabel("How many ",fontsize=19);
+
+### 88208 Show Vs 22319 No Show!
+
+
+
+### Research Question 3 (The Number of People Received SMS vs Not)
+
+# plot the gender column with respect to showed column
+df['SMS_received'].hist()
+
+#### We have 41904 Not received VS 20394 Received a SMS
+
+
+
+
+## Research Question 4  (What days are the most likely that people didn't come in Age ?)
+
+# Age Distribution
+# Get the distribution for only NoShow = 1 / Yes
+df = df[df['NoShow']  == "Yes"]
+df.plot(kind = "hist",y = "Age",bins = 100, color = 'b') 
+plt.title('Age of the patients - Did not Show up')
+plt.xlabel('Age');
+
+## Research Question 5 (People who have Diseases Came to appointment)
+
+# Select people who came
+df = df[df['NoShow']  == "Yes"]
+# plot with respect to Diseases
+df.groupby(['NoShow']).Diseases.value_counts().sort_values(ascending=False)[4::-1].plot(kind='barh');
+
+plt.title("Most frequent diseases of people has appointment")
+plt.xlabel("people")
+plt.ylabel("Diseases");
+
+### Most of the People has appointment have No Diseases
+### hypertension is the first highest Disease common between who has an appointment
+
+
+
+## Research Question 6 (People Age Vs Neighbourhood )
+
+#Age vs Date of month
+plt.scatter(x=df['Neighbourhood'],y=df['Age'])
+plt.xlabel('Areas')
+plt.ylabel('Date of Month')
+plt.title('Scatter plot of Age vs Date of month')
+
+
+
+## Research Question 7 ( Neighbourhood % )
+
+# the neighbourhood %
+df['Neighbourhood'].value_counts(normalize=True).sort_values(ascending = False)[:10].plot.bar(figsize=(24,6), fontsize = 15.0, color = 'b')
+plt.title('Neighbourhood', fontweight="bold", fontsize = 22.0)
+plt.ylabel('Count %', fontsize = 20.0)
+plt.xlabel('Neighbourhood / Location', fontsize = 20.0)
+plt.show()
+
+###the top Neighbourhood has appointment was Jardim Camburi
+
+
+
+
+<a id='conclusions'></a>
+## Conclusions
+
+* 1. Of those patients who have ppointment, 66% were Female and 34% Male
+
+* 2. the Number of People have appointment were 88208 Show Vs 22319 No Show!
+
+* 3. Hypertension and Diabetes patients are attending the doctor when compared to other medications. It can be inferred from the above bar plots that
+ ~20% of patient instances have Hypertension.
+~88% of patient instacnes do not have diabetes
+* 4. We have 41904 Not received SMS VS 20394 Received a SMS
+* 5. the top Neighbourhood has appointment was Jardim Camburi
+
+
+
+## Limitation
+> * 1- Some Date were not true as age they were ages between -1 and 0 and that doen't make any sense 
+> * 2- Some Date Colums were Not corretly spilling makes some confused for Understanding as 'Hipertension'  'Handcap' 
+> * 3- there are some missing values such as the price,the appoinments is affordable or not..
+> * 4- the features such as different gender or alcoholic is not a factor to decide if the person would come to his appointment or not!
+> * 5- I’m not completely sure that a good business-decision could rely only on these findings , It needs more research and more data to have a reliable answer the specified question 
+
+
+from subprocess import call
+call(['python', '-m', 'nbconvert', 'Investigate_a_Dataset.ipynb'])
